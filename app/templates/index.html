@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Visibility Check Tracker - Local-first automated keyword visibility and sponsored listing scraper for Amazon and Flipkart.">
+  <title>Visibility Check Tracker</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-container">
+        <div class="brand-group">
+          <div class="brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="brand-title">Visibility Check Tracker</h1>
+            <p class="brand-subtitle">Automated Sponsored Product & Display Visibility Intelligence</p>
+          </div>
+        </div>
+        <div class="header-right-group">
+          <div class="header-status">
+            <span class="status-indicator online" id="system-status-indicator"></span>
+            <span class="status-label" id="system-status-label">Engine Ready</span>
+          </div>
+          {% if current_user %}
+          <div class="user-badge">
+            <span class="user-avatar">{{ current_user[0]|upper }}</span>
+            <span class="user-name">{{ current_user }}</span>
+            <a href="/logout" class="btn-logout" title="Sign out of tracker">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Logout</span>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-content">
+      <div class="dashboard-grid">
+        
+        <!-- Left Column: Configuration & Controls -->
+        <section class="control-panel card">
+          <div class="card-header">
+            <h2 class="card-title">Run Configuration</h2>
+            <span class="badge badge-subtle">Local-First</span>
+          </div>
+
+          <form id="config-form" onsubmit="return false;">
+            <!-- Step 1: File Upload -->
+            <div class="form-group">
+              <label class="form-label" for="file-upload-input">
+                <span class="step-num">1</span> Upload Keyword Spreadsheet
+              </label>
+              <div class="drop-zone" id="drop-zone">
+                <input type="file" id="file-upload-input" accept=".csv,.xls,.xlsx" hidden>
+                <div class="drop-zone-content" id="drop-zone-prompt">
+                  <div class="upload-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                  </div>
+                  <p class="drop-primary">Drag & drop your file here</p>
+                  <p class="drop-secondary">Supports <strong>.csv, .xls, .xlsx</strong></p>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-browse-file">Browse File</button>
+                </div>
+
+                <!-- File details after upload -->
+                <div class="file-loaded-view hidden" id="file-loaded-view">
+                  <div class="file-info-header">
+                    <div class="file-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                      </svg>
+                    </div>
+                    <div class="file-meta">
+                      <span class="file-name" id="display-filename">keywords.xlsx</span>
+                      <span class="file-keywords" id="display-keyword-count">0 keywords found</span>
+                    </div>
+                    <button type="button" class="btn-icon" id="btn-remove-file" title="Remove file">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-feedback hidden" id="upload-feedback"></div>
+            </div>
+
+            <!-- Step 2: Platform Selection -->
+            <div class="form-group">
+              <label class="form-label">
+                <span class="step-num">2</span> Target Platform
+              </label>
+              <div class="platform-selector">
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="amazon" id="platform-amazon" checked>
+                  <div class="platform-card">
+                    <div class="platform-logo amazon-logo">
+                      <span class="logo-text">amazon</span>
+                      <span class="platform-domain">.in / .com</span>
+                    </div>
+                    <span class="platform-badge">Amazon</span>
+                  </div>
+                </label>
+
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="flipkart" id="platform-flipkart">
+                  <div class="platform-card">
+                    <div class="platform-logo flipkart-logo">
+                      <span class="logo-text">Flipkart</span>
+                      <span class="platform-domain">flipkart.com</span>
+                    </div>
+                    <span class="platform-badge">Flipkart</span>
+                  </div>
+                </label>
+
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="mock" id="platform-mock">
+                  <div class="platform-card">
+                    <div class="platform-logo mock-logo">
+                      <span class="logo-text">Mock / Test</span>
+                      <span class="platform-domain">Fast Local Run</span>
+                    </div>
+                    <span class="platform-badge">Test Mode</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Step 3: Top N Sponsored Listings -->
+            <div class="form-group">
+              <label class="form-label" for="top-n-input">
+                <span class="step-num">3</span> Top Sponsored Listings (N)
+              </label>
+              <div class="stepper-input-container">
+                <button type="button" class="btn-stepper" id="btn-stepper-dec" title="Decrease">-</button>
+                <input type="number" id="top-n-input" name="top_n" min="1" max="15" value="{{ default_top_n }}" class="stepper-input" required>
+                <button type="button" class="btn-stepper" id="btn-stepper-inc" title="Increase">+</button>
+                <div class="stepper-help">
+                  Captures <span id="preview-n-slots">SP1, SP2, SP3</span> + Sponsored Display
+                </div>
+              </div>
+            </div>
+
+            <!-- Start Action Button -->
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-start-job" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Start Visibility Check</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Right Column: Live Status & Progress -->
+        <section class="progress-panel card">
+          <div class="card-header">
+            <h2 class="card-title">Live Execution Monitor</h2>
+            <div class="header-actions">
+              <button type="button" class="btn btn-outline btn-sm hidden" id="btn-cancel-job">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+                Cancel Job
+              </button>
+              <a href="#" class="btn btn-success btn-sm disabled" id="btn-download-csv" download>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Download Live CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- Active Job State Display -->
+          <div class="execution-state-container" id="execution-state">
+            <div class="state-idle" id="state-idle-placeholder">
+              <div class="idle-illustration">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h3>No Active Visibility Job</h3>
+              <p>Upload a keyword file and click "Start Visibility Check" to launch sequential automation.</p>
+            </div>
+
+            <!-- Active Monitor View -->
+            <div class="monitor-view hidden" id="monitor-view">
+              <!-- Top Metrics Row -->
+              <div class="status-summary-row">
+                <div class="metric-card">
+                  <span class="metric-label">Status</span>
+                  <span class="badge badge-status" id="job-status-badge">QUEUED</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Platform</span>
+                  <span class="metric-value capitalize" id="job-platform-display">-</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Completed</span>
+                  <span class="metric-value text-emerald" id="job-completed-count">0</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Failed</span>
+                  <span class="metric-value text-rose" id="job-failed-count">0</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">Total</span>
+                  <span class="metric-value" id="job-total-count">0</span>
+                </div>
+              </div>
+
+              <!-- Progress Bar -->
+              <div class="progress-container">
+                <div class="progress-labels">
+                  <span class="progress-text" id="progress-ratio">0 / 0 Keywords</span>
+                  <span class="progress-pct" id="progress-percentage">0%</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-bar" id="progress-bar-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <!-- Current Keyword Ticker -->
+              <div class="current-keyword-card">
+                <div class="ticker-dot"></div>
+                <div class="ticker-content">
+                  <span class="ticker-title">Currently Processing:</span>
+                  <span class="ticker-kw" id="current-keyword-display">Awaiting start...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Live Results Table Section -->
+      <section class="results-panel card">
+        <div class="card-header">
+          <div class="results-header-left">
+            <h2 class="card-title">Live Visibility Results</h2>
+            <span class="badge badge-subtle" id="results-count-badge">0 Rows</span>
+          </div>
+          <div class="results-filter">
+            <input type="text" id="table-search-filter" placeholder="Filter completed rows..." class="input-sm">
+          </div>
+        </div>
+
+        <div class="table-responsive" id="table-container">
+          <table class="data-table" id="results-table">
+            <thead id="results-table-head">
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>Keyword</th>
+                <th>SP1</th>
+                <th>SP2</th>
+                <th>SP3</th>
+                <th>Sponsored Display</th>
+                <th style="width: 90px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="results-table-body">
+              <tr class="empty-row" id="results-empty-row">
+                <td colspan="7" class="text-center text-muted">
+                  Results will stream here in real-time as each keyword is evaluated.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Runs History & Reports Dashboard Section -->
+      <section class="history-panel card" id="history-section">
+        <div class="card-header">
+          <div class="results-header-left">
+            <div class="history-title-group">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <h2 class="card-title">Runs History & Reports</h2>
+            </div>
+            <span class="badge badge-subtle" id="history-count-badge">0 Past Runs</span>
+          </div>
+          <div class="header-actions">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-refresh-history" title="Refresh run history">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+            <button type="button" class="btn btn-danger-outline btn-sm" id="btn-clear-history" title="Delete past runs and clean storage">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span>Clear History</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="history-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>Uploaded File</th>
+                <th>Target Platform</th>
+                <th>Date & Time Ran</th>
+                <th>Status</th>
+                <th>Keywords</th>
+                <th style="width: 220px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <tr class="empty-row" id="history-empty-row">
+                <td colspan="7" class="text-center text-muted">
+                  No previous runs found. Upload a file and start a check to see past execution reports here.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Logs Console Section -->
+      <section class="logs-panel card">
+        <div class="card-header">
+          <h2 class="card-title">Execution Log Console</h2>
+          <div class="console-actions">
+            <button type="button" class="btn btn-ghost btn-xs" id="btn-clear-logs">Clear</button>
+            <label class="toggle-control">
+              <input type="checkbox" id="toggle-autoscroll" checked>
+              <span>Auto-scroll</span>
+            </label>
+          </div>
+        </div>
+        <div class="console-body" id="console-logs">
+          <div class="log-line text-muted">[SYSTEM] Visibility Check Tracker initialized. Waiting for task.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-container">
+        <span>Visibility Check Tracker &bull; Local First &bull; Python 3.11+ &bull; Playwright</span>
+        <span class="footer-hint">Incremental CSV write & fsync enabled</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Custom Download CSV Modal -->
+  <div class="modal-backdrop hidden" id="download-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download CSV Report
+        </h3>
+        <button type="button" class="modal-close" id="btn-close-download-modal" title="Close dialog">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>You can optionally enter a custom file name for this export. A timestamp will automatically be appended.</p>
+        <label class="form-label" for="custom-filename-input">Custom File Name (optional):</label>
+        <input
+          type="text"
+          id="custom-filename-input"
+          class="modal-input"
+          placeholder="e.g. iphone_visibility_check"
+          autocomplete="off"
+        >
+        <div class="modal-preview-box">
+          <span>Output file will be saved as:</span>
+          <span class="modal-preview-filename" id="download-preview-filename">visibility_report_20260913_203000.csv</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-download">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-download">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download File</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear History Confirmation Modal -->
+  <div class="modal-backdrop hidden" id="clear-confirm-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #f43f5e;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          Clear Pre-runs History
+        </h3>
+        <button type="button" class="modal-close" id="btn-close-clear-modal" title="Close dialog">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #f1f5f9; font-weight: 500;">Are you sure you want to delete past job history?</p>
+        <p>This will permanently remove all previous run records, uploaded keyword files, and generated CSV results. Active running jobs will not be affected.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-cancel-clear">Cancel</button>
+        <button type="button" class="btn btn-danger-solid btn-sm" id="btn-confirm-clear">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Yes, Clear History</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Application -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
