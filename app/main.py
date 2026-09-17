@@ -1,14 +1,24 @@
+import asyncio
 from contextlib import asynccontextmanager
 import logging
 from pathlib import Path
+import sys
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+# Windows asyncio Proactor policy (required for Playwright on Windows)
+if sys.platform == "win32":
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+
 from app.api.auth import router as auth_router
 from app.api.jobs import router as jobs_router
+from app.api.tunnel import router as tunnel_router
 from app.api.upload import router as upload_router
 from app.config import settings
 from app.services.auth import get_current_user
@@ -62,6 +72,7 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(jobs_router)
+app.include_router(tunnel_router)
 
 
 @app.get("/", response_class=HTMLResponse, summary="Main visibility tracker dashboard")

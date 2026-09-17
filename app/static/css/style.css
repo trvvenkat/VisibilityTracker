@@ -140,6 +140,82 @@ body {
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
 }
 
+/* Remote Access / Ngrok Tunnel Pill */
+.tunnel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  color: #e0e7ff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
+  animation: fadeIn 0.3s ease;
+}
+
+.tunnel-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+  box-shadow: 0 0 8px #6366f1;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.tunnel-icon {
+  display: flex;
+  align-items: center;
+  color: #818cf8;
+}
+
+.tunnel-label {
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
+.tunnel-link {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.775rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tunnel-link:hover {
+  color: #c7d2fe;
+}
+
+.btn-copy-tunnel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(99, 102, 241, 0.25);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #e0e7ff;
+  font-size: 0.725rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-copy-tunnel:hover {
+  background: rgba(99, 102, 241, 0.45);
+  color: #ffffff;
+}
+
 /* ==========================================================================
    Main Content Layout
    ========================================================================== */

@@ -919,6 +919,54 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ==========================================================================
+  // Remote Access / Tunnel Status Loader
+  // ==========================================================================
+  const tunnelBadge = document.getElementById("tunnel-badge");
+  const tunnelLink = document.getElementById("tunnel-link");
+  const btnCopyTunnel = document.getElementById("btn-copy-tunnel");
+  const copyTunnelText = document.getElementById("copy-tunnel-text");
+
+  async function checkTunnelStatus() {
+    if (!tunnelBadge) return;
+    try {
+      const res = await fetch("/api/tunnel-info");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.active && data.public_url) {
+        tunnelLink.href = data.public_url;
+        tunnelLink.textContent = data.public_url;
+        tunnelBadge.classList.remove("hidden");
+      } else {
+        tunnelBadge.classList.add("hidden");
+      }
+    } catch (err) {
+      console.debug("Tunnel check:", err);
+    }
+  }
+
+  if (btnCopyTunnel) {
+    btnCopyTunnel.addEventListener("click", async () => {
+      const url = tunnelLink.href;
+      if (!url || url === "#") return;
+      try {
+        await navigator.clipboard.writeText(url);
+        copyTunnelText.textContent = "Copied!";
+        btnCopyTunnel.style.background = "rgba(16, 185, 129, 0.4)";
+        setTimeout(() => {
+          copyTunnelText.textContent = "Copy";
+          btnCopyTunnel.style.background = "";
+        }, 2000);
+      } catch (e) {
+        prompt("Copy this remote access link:", url);
+      }
+    });
+  }
+
+  // Initial tunnel check and periodic check every 30s
+  checkTunnelStatus();
+  setInterval(checkTunnelStatus, 30000);
+
   // Initial load of past runs history
   loadRunsHistory();
 });

@@ -3,8 +3,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 import shutil
+import stat
 from typing import Literal
 import uuid
 
@@ -252,12 +254,19 @@ class JobManager:
 
         cleared_count = 0
 
+        def _force_remove_readonly(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
         # 1. Clean jobs directory
         if settings.JOBS_DIR.exists():
             for item in settings.JOBS_DIR.iterdir():
                 if item.is_dir() and item.name not in running_job_ids:
                     try:
-                        shutil.rmtree(item)
+                        shutil.rmtree(item, onerror=_force_remove_readonly)
                         cleared_count += 1
                     except Exception as e:
                         logger.warning(f"Error removing job dir {item}: {e}")
@@ -269,8 +278,12 @@ class JobManager:
                     continue
                 try:
                     if item.is_dir():
-                        shutil.rmtree(item)
+                        shutil.rmtree(item, onerror=_force_remove_readonly)
                     else:
+                        try:
+                            os.chmod(item, stat.S_IWRITE)
+                        except Exception:
+                            pass
                         item.unlink()
                 except Exception as e:
                     logger.warning(f"Error removing upload file {item}: {e}")

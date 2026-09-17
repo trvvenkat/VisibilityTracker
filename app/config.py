@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "vt_session"
     SESSION_MAX_AGE_SECS: int = 7 * 24 * 3600  # 7 days
 
+    # Remote access / Tunnel settings (ngrok)
+    NGROK_API_URL: str = "http://localhost:4040"
+
     # Storage paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     DATA_DIR: Path = BASE_DIR / "data"

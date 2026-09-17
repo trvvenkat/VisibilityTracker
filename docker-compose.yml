@@ -1,0 +1,60 @@
+services:
+  # Main Full-Stack Application (FastAPI + Playwright Headless Chromium)
+  tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: visibility_tracker
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - BROWSER_HEADLESS=true
+      - NGROK_API_URL=http://ngrok:4040
+      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-tracker@2026}
+      - SECRET_KEY=${SECRET_KEY:-visibility-tracker-secure-secret-2026}
+    volumes:
+      - ./data:/app/data
+
+  # Official Ngrok Tunneling Service
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: visibility_ngrok
+    restart: unless-stopped
+    command:
+      - "http"
+      - "tracker:8000"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - tracker
+
+  # Startup Watcher to detect the ngrok public URL and print a prominent banner in the console
+  tunnel-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: visibility_tunnel_watcher
+    command: ["python", "scripts/display_tunnel.py"]
+    environment:
+      - NGROK_API_URL=http://ngrok:4040
+      - AUTH_USERNAME=${AUTH_USERNAME:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-tracker@2026}
+    depends_on:
+      - tracker
+      - ngrok
+    restart: on-failure
+
+  # Optional zero-configuration Cloudflare Tunnel profile (no signup or token required)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: visibility_cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://tracker:8000
+    depends_on:
+      - tracker
+    profiles:
+      - cloudflare

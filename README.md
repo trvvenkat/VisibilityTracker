@@ -101,14 +101,65 @@ VisibilityTracker/
 
 ---
 
-## Installation & Setup
+## Quickstart: Running on Windows & Docker (Single-Command)
+
+### Option A: Docker Compose with Ngrok (Recommended for Remote & Tablet Access)
+
+Run the entire application, headless Chromium Playwright automation, and a public ngrok tunnel with **one single command**.
+
+1. Ensure **Docker Desktop** is installed and running.
+2. (Optional) Set your free ngrok token in `.env`:
+   ```bash
+   cp .env.example .env
+   # Add your token: NGROK_AUTHTOKEN=your_token_here
+   ```
+3. **On Windows**: Double-click `start-docker.bat` or run:
+   ```cmd
+   docker compose up --build
+   ```
+   **On macOS / Linux**: Run `./start-docker.sh` or `docker compose up --build`.
+
+4. **Accessing the Tracker**:
+   - **Local Access**: Open [http://localhost:8000](http://localhost:8000)
+   - **Remote Access (Tablet / Laptop / Phone)**: Look at the terminal banner for the active public ngrok link:
+     ```text
+     ================================================================================
+     🚀  VISIBILITY CHECK TRACKER IS LIVE & READY!
+     ================================================================================
+     📱  TABLET / LAPTOP REMOTE ACCESS URL:
+         👉  https://your-tunnel-id.ngrok-free.app  👈
+     🔑  LOGIN CREDENTIALS:
+         Username: admin
+         Password: tracker@2026
+     ================================================================================
+     ```
+   - You can also view and copy the public remote URL directly from the header pill in the dashboard!
+
+---
+
+### Option B: Native Windows Execution (Without Docker)
+
+You can also run the tracker directly on Windows without Docker:
+
+1. **First-time setup**:
+   Double-click `setup-windows.bat` (or run in CMD / PowerShell):
+   - Automatically creates Python virtual environment (`.venv`).
+   - Installs all dependencies and Playwright Chromium.
+2. **Launch Tracker**:
+   Double-click `run-windows.bat`:
+   - Opens local server at `http://127.0.0.1:8000`.
+   - Sign in with `admin` / `tracker@2026`.
+
+---
+
+## Standard Installation & Setup (macOS / Linux Native)
 
 ### Prerequisites
 
 - **Python 3.11+**
 - macOS, Linux, or Windows
 
-### 1. Clone & Set Up Virtual Environment
+### 1. Set Up Virtual Environment
 
 ```bash
 cd VisibilityTracker
@@ -116,32 +167,17 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### 2. Install Dependencies
+### 2. Install Dependencies & Browsers
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 3. Install Playwright Browsers
-
-```bash
 playwright install chromium
 ```
 
----
-
-## Running the Application
-
-Start the local server with:
+### 3. Run Locally
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Open your browser and navigate to:
-
-```text
-http://127.0.0.1:8000
 ```
 
 ---
