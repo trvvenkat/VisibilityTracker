@@ -215,6 +215,93 @@ async def test_amazon_modern_title_and_sponsored_recipe():
     await scraper.close()
 
 
+AMAZON_TITLE_LAYOUT_HTML = """
+<!DOCTYPE html>
+<html>
+<head><title>Amazon.in : mixer grinder</title></head>
+<body>
+  <div class="s-main-slot">
+    <!-- Feature line sits in the old brand slot; real title is in the product link -->
+    <div data-component-type="s-search-result" data-asin="B0HL7707" data-uuid="uuid-feature" style="display: block;">
+      <span class="puis-sponsored-label-text">Sponsored</span>
+      <div data-cy="title-recipe">
+        <div class="a-row a-color-secondary">
+          <h2 class="a-size-mini s-line-clamp-1">
+            <span>3-in-1, Mixer Grinder for home + Juicer + Food Processor, Black</span>
+          </h2>
+        </div>
+        <a class="a-link-normal" href="/sspa/click?url=%2FPhilips-Mixer-Grinder%2Fdp%2FB0HL7707">
+          <h2 class="a-size-base-plus">
+            <span>Philips Stainless Steel Mixer Grinder HL7707/01, 750W, 4 Jars</span>
+          </h2>
+        </a>
+      </div>
+    </div>
+
+    <!-- Organic card between sponsored results -->
+    <div data-component-type="s-search-result" data-asin="B0ORGANIC" data-uuid="uuid-organic" style="display: block;">
+      <div data-cy="title-recipe">
+        <a class="a-link-normal" href="/Lifelong-Mixer/dp/B0ORGANIC">
+          <h2 class="a-size-medium"><span>Lifelong Mixer Grinder 500W</span></h2>
+        </a>
+      </div>
+    </div>
+
+    <!-- Feature line and title are both a-size-mini; title is the heading inside the link -->
+    <div data-component-type="s-search-result" data-asin="B0HL7756" data-uuid="uuid-both-mini" style="display: block;">
+      <span class="puis-sponsored-label-text">Sponsored</span>
+      <div data-cy="title-recipe">
+        <h2 class="a-size-mini s-line-clamp-1">
+          <span>25 mins Continuous Grinding, Mixer Grinder for Kitchen with 3 Speed Control, Pulse Function, Black</span>
+        </h2>
+        <a class="a-link-normal" href="/sspa/click?url=%2FPhilips-HL7756%2Fdp%2FB0HL7756">
+          <h2 class="a-size-mini s-line-clamp-2">
+            <span>Philips HL7756 Mixer Grinder 750W, with 3 Stainless Steel Jars</span>
+          </h2>
+        </a>
+      </div>
+    </div>
+
+    <!-- One-line title, no subheading, name only inside the sponsored click link -->
+    <div data-component-type="s-search-result" data-asin="B0ONELINE" data-uuid="uuid-one-line" style="display: block;">
+      <span class="puis-sponsored-label-text">Sponsored</span>
+      <div data-cy="title-recipe">
+        <a class="a-link-normal s-line-clamp-1" href="/sspa/click?ie=UTF8&url=%2FPrestige-Iris%2Fdp%2FB0ONELINE">
+          <span class="a-size-base-plus a-color-base a-text-normal">Prestige Iris 750 Watt Mixer Grinder with 4 Jars</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+@pytest.mark.asyncio
+async def test_amazon_title_ignores_feature_line_and_reads_one_line_cards():
+    scraper = AmazonScraper(headless=True)
+    await scraper.initialize()
+    assert scraper._page is not None
+
+    await scraper._page.set_content(AMAZON_TITLE_LAYOUT_HTML)
+
+    sp_items = await scraper._extract_sponsored_products(top_n=3)
+    assert len(sp_items) == 3
+
+    assert sp_items[0].position == 1
+    assert sp_items[0].name == "Philips Stainless Steel Mixer Grinder HL7707/01, 750W, 4 Jars"
+    assert "/sspa/click" in sp_items[0].url
+
+    assert sp_items[1].position == 2
+    assert sp_items[1].name == "Philips HL7756 Mixer Grinder 750W, with 3 Stainless Steel Jars"
+
+    assert sp_items[2].position == 3
+    assert sp_items[2].name == "Prestige Iris 750 Watt Mixer Grinder with 4 Jars"
+    assert "/sspa/click" in sp_items[2].url
+
+    await scraper.close()
+
+
 @pytest.mark.asyncio
 async def test_flipkart_modern_grid_svg_and_adview():
     scraper = FlipkartScraper(headless=True)

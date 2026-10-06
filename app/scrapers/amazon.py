@@ -7,6 +7,33 @@ from app.scrapers.base import PlatformScraper, SearchResult, SponsoredProduct
 
 logger = logging.getLogger("visibility_tracker.scrapers.amazon")
 
+_SPONSORED_LABEL_RE = re.compile(
+    r"^(?:sponsored\s*(?:ad)?\s*[-–—:]\s*|\(sponsored\)\s*)",
+    re.IGNORECASE,
+)
+_NOT_A_BRAND = frozenset({"sponsored", "sponsored ad", "featured", "featured from our brands"})
+
+
+def _normalize_listing_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text.replace("\r", " ").replace("\n", " ")).strip()
+    return _SPONSORED_LABEL_RE.sub("", cleaned).strip()
+
+
+def _is_short_brand(brand: str, title: str) -> bool:
+    """A brand is a short maker name. Feature subheadings are full sentences."""
+    if not brand or not title:
+        return False
+    if brand.casefold() in _NOT_A_BRAND or brand.casefold() == title.casefold():
+        return False
+    if "," in brand or "|" in brand:
+        return False
+    words = brand.split()
+    if not words or len(words) > 3:
+        return False
+    if len(brand) > 40 or len(brand) >= len(title):
+        return False
+    return True
+
 
 class AmazonScraper(PlatformScraper):
     """
@@ -66,6 +93,13 @@ class AmazonScraper(PlatformScraper):
         "[data-cy='title-recipe'] .a-color-secondary span",
         "div.s-title-instructions-style .a-color-secondary span",
         "div.s-line-clamp-1 span",
+    ]
+
+    # Product link. The title is read from this anchor, not from the first heading on the card.
+    PRODUCT_LINK_SELECTORS = [
+        "a[href*='/sspa/click']",
+        "a[href*='%2Fdp%2F']",
+        "a[href*='/dp/']",
     ]
 
     # Product URL selector
@@ -314,6 +348,97 @@ class AmazonScraper(PlatformScraper):
 
         return None
 
+    async def _title_from_heading(self, heading) -> str:
+        text = _normalize_listing_text(await heading.inner_text())
+        if len(text) > 2 and text.casefold() not in _NOT_A_BRAND:
+            return text
+        aria = _normalize_listing_text(await heading.get_attribute("aria-label") or "")
+        if len(aria) > 2 and aria.casefold() not in _NOT_A_BRAND:
+            return aria
+        return ""
+
+    async def _title_from_product_link(self, link) -> str:
+        """
+        Read the product name from the listing link.
+        A feature line above the link is a sibling heading, so it is ignored.
+        When every heading inside the link is the compact mini style, the last
+        one is the title (the feature line, when present, comes first).
+        """
+        headings = await link.query_selector_all("h2")
+        chosen = None
+        for heading in headings:
+            class_name = await heading.get_attribute("class") or ""
+            if "a-size-mini" not in class_name.split():
+                chosen = heading
+                break
+        if chosen is None and headings:
+            chosen = headings[-1]
+        if chosen is not None:
+            text = await self._title_from_heading(chosen)
+            if text:
+                return text
+
+        link_text = _normalize_listing_text(await link.inner_text())
+        if len(link_text) > 2 and link_text.casefold() not in _NOT_A_BRAND:
+            return link_text
+        return ""
+
+    async def _title_from_legacy_selectors(self, container) -> str:
+        for title_sel in self.TITLE_SELECTORS:
+            try:
+                title_el = await container.query_selector(title_sel)
+                if not title_el:
+                    continue
+                tag_name = await title_el.evaluate("el => el.tagName")
+                if tag_name == "A":
+                    heading = await title_el.query_selector("h2")
+                    candidate = await self._title_from_heading(heading) if heading else ""
+                    if not candidate:
+                        candidate = _normalize_listing_text(await title_el.inner_text())
+                elif tag_name == "H2":
+                    candidate = await self._title_from_heading(title_el)
+                else:
+                    candidate = _normalize_listing_text(await title_el.inner_text())
+                if len(candidate) > 2 and candidate.casefold() not in _NOT_A_BRAND:
+                    return candidate
+            except Exception:
+                continue
+        return ""
+
+    async def _with_short_brand(self, container, title: str) -> str:
+        for selector in self.BRAND_SELECTORS:
+            try:
+                elements = await container.query_selector_all(selector)
+            except Exception:
+                continue
+            for element in elements:
+                try:
+                    brand = _normalize_listing_text(await element.inner_text())
+                except Exception:
+                    continue
+                if _is_short_brand(brand, title) and not title.casefold().startswith(brand.casefold()):
+                    return f"{brand} {title}".strip()
+        return title
+
+    async def _extract_product_title(self, container) -> str | None:
+        for selector in self.PRODUCT_LINK_SELECTORS:
+            try:
+                links = await container.query_selector_all(selector)
+            except Exception:
+                continue
+            for link in links:
+                try:
+                    title = await self._title_from_product_link(link)
+                except Exception:
+                    continue
+                if title:
+                    return await self._with_short_brand(container, title)
+
+        title = await self._title_from_legacy_selectors(container)
+        if not title:
+            return None
+        return await self._with_short_brand(container, title)
+
     async def _extract_sponsored_products(self, top_n: int) -> list[SponsoredProduct]:
         """
         Iterates through search results in DOM order, identifies sponsored products,
@@ -361,60 +486,9 @@ class AmazonScraper(PlatformScraper):
                 if not is_sponsored:
                     continue
 
-                # Extract product title
-                title: str | None = None
-                
-                # Check title elements with rich attribute or heading
-                for title_sel in self.TITLE_SELECTORS:
-                    try:
-                        title_el = await container.query_selector(title_sel)
-                        if title_el:
-                            # If tag is link, check for inner h2 with aria-label
-                            tag_name = await title_el.evaluate("el => el.tagName")
-                            if tag_name == "A":
-                                h2 = await title_el.query_selector("h2")
-                                if h2 and await h2.get_attribute("aria-label"):
-                                    candidate = (await h2.get_attribute("aria-label") or "").strip()
-                                elif h2:
-                                    candidate = (await h2.inner_text()).strip()
-                                else:
-                                    candidate = (await title_el.inner_text()).strip()
-                            elif tag_name == "H2" and await title_el.get_attribute("aria-label"):
-                                candidate = (await title_el.get_attribute("aria-label") or "").strip()
-                            else:
-                                candidate = (await title_el.inner_text()).strip()
-
-                            # Discard very short or generic strings if other elements exist
-                            if candidate and len(candidate) > 2:
-                                title = candidate.replace("\n", " ").strip()
-                                break
-                    except Exception:
-                        continue
-
+                title = await self._extract_product_title(container)
                 if not title:
                     continue
-
-                # Strip leading Sponsored Ad label prefixes from title
-                title = re.sub(
-                    r"^(sponsored\s*(ad)?\s*[-–—:]\s*|\(sponsored\)\s*)",
-                    "",
-                    title,
-                    flags=re.IGNORECASE,
-                ).strip()
-
-                # Check if brand is sitting separately above title (e.g. 'Apple')
-                try:
-                    brand_el = None
-                    for b_sel in self.BRAND_SELECTORS:
-                        brand_el = await container.query_selector(b_sel)
-                        if brand_el:
-                            break
-                    if brand_el:
-                        brand = (await brand_el.inner_text()).strip()
-                        if brand and not title.lower().startswith(brand.lower()):
-                            title = f"{brand} {title}".strip()
-                except Exception:
-                    pass
 
                 # Extract product link
                 url: str | None = None
