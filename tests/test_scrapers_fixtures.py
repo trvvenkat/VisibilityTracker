@@ -322,3 +322,144 @@ async def test_flipkart_modern_grid_svg_and_adview():
 
     await scraper.close()
 
+
+FLIPKART_LIST_LAYOUT_HTML = """
+<!DOCTYPE html>
+<html>
+<head><title>mixer grinder for kitchen - Buy Products Online at Best Price in India - Flipkart.com</title></head>
+<body>
+  <!-- Sponsored list card: SVG wordmark, title only in RG5Slk and img alt, wrapping link has no title -->
+  <div data-id="MIXF5D4KPARAZNZA" style="display: block;">
+    <a class="k7wcnx" href="/butterfly-rapid-750-w-juicer-mixer-grinder/p/itm9202a2047fd97?pid=MIXF5D4KPARAZNZA&amp;fm=organic">
+      <label><span>Add to Compare</span></label>
+      <img alt="Butterfly Rapid 750 W Juicer Mixer Grinder" src="https://rukminim2.flixcart.com/image/312/312/mixer.jpeg"/>
+      <div class="t7gRps"><svg width="62" height="18" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="18" fill="white"></rect></svg></div>
+      <div class="RG5Slk">Butterfly Rapid 750 W Juicer Mixer Grinder</div>
+    </a>
+  </div>
+
+  <!-- Second sponsored list card, same shape -->
+  <div data-id="MIXH8YJA43VTGXQG" style="display: block;">
+    <a class="k7wcnx" href="/grand-plus-sky-blue-550-w-mixer-grinder/p/itmd5ea4138f7fa5?pid=MIXH8YJA43VTGXQG&amp;fm=organic">
+      <label><span>Add to Compare</span></label>
+      <img alt="Grand plus Sky Blue 550 W Mixer Grinder" src="https://rukminim2.flixcart.com/image/312/312/grand.jpeg"/>
+      <div class="t7gRps"><svg width="62" height="18" xmlns="http://www.w3.org/2000/svg"><rect width="62" height="18" fill="white"></rect></svg></div>
+      <div class="RG5Slk">Grand plus Sky Blue 550 W Mixer Grinder</div>
+    </a>
+  </div>
+
+  <!-- Organic bestseller: same title node, no sponsored SVG -->
+  <div data-id="MIXGSF4YQSJYKR5J" style="display: block;">
+    <a class="k7wcnx" href="/crompton-ds-500-w-mixer-grinder/p/itmbestseller?pid=MIXGSF4YQSJYKR5J&amp;fm=organic">
+      <label><span>Add to Compare</span></label>
+      <img alt="Crompton DS 500 W Mixer Grinder" src="https://rukminim2.flixcart.com/image/312/312/crompton.jpeg"/>
+      <div class="RG5Slk">Crompton DS 500 W Mixer Grinder</div>
+    </a>
+  </div>
+</body>
+</html>
+"""
+
+
+FLIPKART_DISPLAY_HTML = """
+<!DOCTYPE html>
+<html>
+<head><title>mixer grinder for kitchen</title></head>
+<body>
+  <div class="_1yR-bH" style="display: block;">Add to Compare</div>
+  <div data-tracking-id="top-banner" style="display: block;">
+    <div>Sponsored</div>
+    <div>Butterfly Official Store</div>
+  </div>
+</body>
+</html>
+"""
+
+
+@pytest.mark.asyncio
+async def test_flipkart_list_layout_reads_rg5slk_title():
+    scraper = FlipkartScraper(headless=True)
+    await scraper.initialize()
+    assert scraper._page is not None
+
+    await scraper._page.set_content(FLIPKART_LIST_LAYOUT_HTML)
+
+    sp_items = await scraper._extract_sponsored_products(top_n=3)
+    assert len(sp_items) == 2
+
+    assert sp_items[0].position == 1
+    assert sp_items[0].name == "Butterfly Rapid 750 W Juicer Mixer Grinder"
+    assert "/butterfly-rapid-750-w-juicer-mixer-grinder" in sp_items[0].url
+
+    assert sp_items[1].position == 2
+    assert sp_items[1].name == "Grand plus Sky Blue 550 W Mixer Grinder"
+    assert "/grand-plus-sky-blue-550-w-mixer-grinder" in sp_items[1].url
+
+    await scraper.close()
+
+
+@pytest.mark.asyncio
+async def test_flipkart_sponsored_display_ignores_add_to_compare():
+    scraper = FlipkartScraper(headless=True)
+    await scraper.initialize()
+    assert scraper._page is not None
+
+    await scraper._page.set_content(FLIPKART_DISPLAY_HTML)
+
+    display = await scraper._extract_sponsored_display()
+    assert display is not None
+    assert display.name == "Butterfly Official Store"
+
+    await scraper.close()
+
+
+FLIPKART_RESTACKED_HTML = """
+<!DOCTYPE html>
+<html>
+<head><title>grinder mixer machine</title></head>
+<body>
+  <!-- Document order groups the two Cromptons. Flex order is the on-screen order:
+       Ameo, Grand plus, BlendX. All three are sponsored, including two from one brand. -->
+  <div style="display: flex; flex-direction: column;">
+    <div data-id="AMEO" style="order: 1; display: block;">
+      <a class="k7wcnx" href="/crompton-ameo-750-w-mixer-grinder/p/itm-ameo">
+        <div class="t7gRps"><svg width="62" height="18"></svg></div>
+        <div class="RG5Slk">Crompton Ameo 750 W Mixer Grinder</div>
+      </a>
+    </div>
+    <div data-id="BLENDX" style="order: 3; display: block;">
+      <a class="k7wcnx" href="/crompton-blendx-500-w-juicer-mixer-grinder/p/itm-blendx">
+        <div class="t7gRps"><svg width="62" height="18"></svg></div>
+        <div class="RG5Slk">Crompton BlendX 500 W Juicer Mixer Grinder</div>
+      </a>
+    </div>
+    <div data-id="GRAND" style="order: 2; display: block;">
+      <a class="k7wcnx" href="/grand-plus-sky-blue-550-w-mixer-grinder/p/itm-grand">
+        <div class="t7gRps"><svg width="62" height="18"></svg></div>
+        <div class="RG5Slk">Grand plus Sky Blue 550 W Mixer Grinder</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+@pytest.mark.asyncio
+async def test_flipkart_sponsored_follows_onscreen_order_for_repeated_brands():
+    scraper = FlipkartScraper(headless=True)
+    await scraper.initialize()
+    assert scraper._page is not None
+
+    await scraper._page.set_content(FLIPKART_RESTACKED_HTML)
+
+    sp_items = await scraper._extract_sponsored_products(top_n=3)
+    assert [item.name for item in sp_items] == [
+        "Crompton Ameo 750 W Mixer Grinder",
+        "Grand plus Sky Blue 550 W Mixer Grinder",
+        "Crompton BlendX 500 W Juicer Mixer Grinder",
+    ]
+    assert [item.position for item in sp_items] == [1, 2, 3]
+
+    await scraper.close()
+

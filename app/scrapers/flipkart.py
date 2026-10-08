@@ -1,10 +1,14 @@
 import logging
+import re
 import urllib.parse
 from playwright.async_api import async_playwright, Playwright, Browser, BrowserContext, Page
 from app.config import settings
 from app.scrapers.base import PlatformScraper, SearchResult, SponsoredProduct
 
 logger = logging.getLogger("visibility_tracker.scrapers.flipkart")
+
+# Whole-word labels only. A substring check treats "Add to Compare" as an Ad.
+_AD_LABEL = re.compile(r"\b(?:Ad|Sponsored)\b")
 
 
 class FlipkartScraper(PlatformScraper):
@@ -65,6 +69,8 @@ class FlipkartScraper(PlatformScraper):
         "a.s1Q9rs",
         "a.wByabb",
         "div.B_NuCI",
+        "div.RG5Slk",
+        "img[alt]",
     ]
 
     # Product URL selector
@@ -236,6 +242,9 @@ class FlipkartScraper(PlatformScraper):
             except Exception:
                 pass
 
+            # Flipkart restacks same-brand ads after first paint. Read once that layout stops moving.
+            await self._wait_for_card_layout()
+
             # 1. Check for Sponsored Display
             sponsored_display = await self._extract_sponsored_display()
 
@@ -274,7 +283,7 @@ class FlipkartScraper(PlatformScraper):
                     continue
 
                 text = await container.inner_text()
-                if "Ad" in text or "Sponsored" in text:
+                if _AD_LABEL.search(text):
                     lines = [l.strip() for l in text.splitlines() if l.strip() and l.strip() not in ("Ad", "Sponsored")]
                     if lines:
                         return SponsoredProduct(
@@ -288,10 +297,53 @@ class FlipkartScraper(PlatformScraper):
 
         return None
 
+    async def _wait_for_card_layout(self) -> None:
+        """
+        Wait until the first product cards keep the same vertical positions.
+        Flipkart's client moves ad slots after the initial HTML is parsed.
+        """
+        if not self._page:
+            return
+
+        try:
+            await self._page.wait_for_load_state("load", timeout=min(self.timeout, 10000))
+        except Exception:
+            pass
+
+        previous: str | None = None
+        for _ in range(8):
+            try:
+                snapshot = await self._page.evaluate(
+                    """() => Array.from(document.querySelectorAll('div[data-id]')).slice(0, 15).map((el) => {
+                        const box = el.getBoundingClientRect();
+                        return (el.getAttribute('data-id') || '') + '@' + Math.round(box.top);
+                    }).join('|')"""
+                )
+            except Exception:
+                return
+
+            if previous is not None and snapshot == previous:
+                return
+            previous = snapshot
+            try:
+                await self._page.wait_for_timeout(250)
+            except Exception:
+                return
+
+    async def _visual_position(self, element) -> tuple[float, float]:
+        """Top-to-bottom, then left-to-right. Cards with no box sort last."""
+        try:
+            box = await element.bounding_box()
+        except Exception:
+            box = None
+        if not box:
+            return (float("inf"), float("inf"))
+        return (box["y"], box["x"])
+
     async def _extract_sponsored_products(self, top_n: int) -> list[SponsoredProduct]:
         """
-        Iterates over product cards, identifies 'Ad' or 'Sponsored' tags,
-        and collects up to top_n in order.
+        Iterates over product cards in on-screen order, identifies 'Ad' or
+        'Sponsored' tags, and collects up to top_n. Repeated brands are kept.
         """
         if not self._page:
             return []
@@ -306,6 +358,12 @@ class FlipkartScraper(PlatformScraper):
                 if key not in seen_ids:
                     seen_ids.add(key)
                     containers.append(el)
+
+        ordered = []
+        for el in containers:
+            ordered.append((await self._visual_position(el), el))
+        ordered.sort(key=lambda item: item[0])
+        containers = [el for _, el in ordered]
 
         sponsored_products: list[SponsoredProduct] = []
         current_position = 1
@@ -350,6 +408,8 @@ class FlipkartScraper(PlatformScraper):
                             candidate = (await title_el.get_attribute("title") or "").strip()
                             if not candidate:
                                 candidate = (await title_el.inner_text()).strip()
+                            if not candidate:
+                                candidate = (await title_el.get_attribute("alt") or "").strip()
                             if candidate and len(candidate) > 2:
                                 title = candidate.replace("\n", " ").strip()
                                 break
